@@ -63,32 +63,36 @@ L = [4, 14, 16, 22]
 
 ### OBLICZENIA
 
-def solve_problem(epsilon):
-    # Utwórz model
-    model = LpProblem("Pfitzer", LpMinimize)
-    x = LpVariable.dicts("x", (range(22), range(4)), cat=LpBinary)
+def optimize_distribution(max_deviation):
+    # Initialize the optimization model
+    optimization_model = LpProblem("OptimalDistribution", LpMinimize)
+    
+    # Binary decision variables
+    decision_vars = LpVariable.dicts("decision", (range(22), range(4)), cat=LpBinary)
 
-    # Funkcja celu f1
-    model += lpSum(D[i][j] * x[i][j] for i in range(22) for j in range(4))
+    # Objective function
+    optimization_model += lpSum(D[i][j] * decision_vars[i][j] for i in range(22) for j in range(4))
 
-    # Ograniczenia dla epsilon
-    model += lpSum(x[i][j] * (1 - A[i][j]) * P[i] for i in range(22) for j in range(4)) <= epsilon
+    # Deviation constraint based on max_deviation input
+    optimization_model += lpSum(decision_vars[i][j] * (1 - A[i][j]) * P[i] for i in range(22) for j in range(4)) <= max_deviation
 
-    # Ograniczenia dodatkowe
+    # Ensure one assignment per item
     for i in range(22):
-        model += lpSum(x[i][j] for j in range(4)) == 1
+        optimization_model += lpSum(decision_vars[i][j] for j in range(4)) == 1
 
+    # Balance constraints for distribution weights
     for j in range(4):
-        model += lpSum(x[i][j] * P[i] for i in range(22)) >= 0.9
-        model += lpSum(x[i][j] * P[i] for i in range(22)) <= 1.1
+        optimization_model += lpSum(decision_vars[i][j] * P[i] for i in range(22)) >= 0.9
+        optimization_model += lpSum(decision_vars[i][j] * P[i] for i in range(22)) <= 1.1
 
-    # Rozwiązanie
-    model.solve()
+    # Solve the problem
+    optimization_model.solve()
 
-    f1 = value(model.objective)
-    f2 = sum([x[i][j].varValue * (1 - A[i][j]) * P[i] for i in range(22) for j in range(4)])
-    return f1, f2
+    # Calculate objective and deviation
+    total_cost = value(optimization_model.objective)
+    total_deviation = sum([decision_vars[i][j].varValue * (1 - A[i][j]) * P[i] for i in range(22) for j in range(4)])
+    return total_cost, total_deviation
 
-# Wyznaczenie frontu Pareta
-solutions = [solve_problem(epsilon) for epsilon in range(0, 2500, 250)]
-solutions
+# Calculate solutions for different deviation levels
+pareto_front = [optimize_distribution(deviation) for deviation in range(0, 2500, 250)]
+pareto_front
